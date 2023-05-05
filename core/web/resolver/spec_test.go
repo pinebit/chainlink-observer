@@ -142,6 +142,62 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+func TestResolver_ObserverSpec(t *testing.T) {
+	testCases := []GQLTestCase{
+		{
+			name:          "observer spec success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", int32(1)).Return(job.Job{
+					Type: job.Observer,
+					ObserverSpec: &job.ObserverSpec{
+						Addresses:  []string{"0x613a38AC1659769640aaE063C651F48E0250454C"},
+						Events:     []string{"foo()", "bar()"},
+						CreatedAt:  f.Timestamp(),
+						EVMChainID: utils.NewBigI(42),
+						Interval:   *models.MustNewDuration(1 * time.Minute),
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on ObserverSpec {
+									addresses
+									events
+									createdAt
+									evmChainID
+									interval
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "ObserverSpec",
+							"addresses": ["0x613a38AC1659769640aaE063C651F48E0250454C"],
+							"events": ["foo()","bar()"],
+							"createdAt": "2021-01-01T00:00:00Z",
+							"evmChainID": "42",
+							"interval": "1m0s"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
 func TestResolver_FluxMonitorSpec(t *testing.T) {
 	var (
 		id = int32(1)

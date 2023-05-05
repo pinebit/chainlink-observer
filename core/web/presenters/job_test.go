@@ -117,6 +117,73 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
+						"errors": []
+					}
+				}
+			}`, contractAddress),
+		},
+		{
+			name: "observer spec",
+			job: job.Job{
+				ID:                1,
+				GasLimit:          clnull.Uint32From(specGasLimit),
+				ForwardingAllowed: false,
+				ObserverSpec: &job.ObserverSpec{
+					Addresses:  []string{contractAddress.String()},
+					Events:     []string{"foo()", "bar()"},
+					Interval:   *models.MustNewDuration(1 * time.Minute),
+					CreatedAt:  timestamp,
+					UpdatedAt:  timestamp,
+					EVMChainID: evmChainID,
+				},
+				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
+				},
+				Type:            job.Observer,
+				SchemaVersion:   1,
+				Name:            null.StringFrom("test"),
+				MaxTaskDuration: models.Interval(1 * time.Minute),
+			},
+			want: fmt.Sprintf(`
+			{
+				"data":{
+					"type":"jobs",
+					"id":"1",
+					"attributes":{
+						"name": "test",
+						"schemaVersion": 1,
+						"type": "observer",
+						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+						"pipelineSpec": {
+							"id": 1,
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
+						},
+						"directRequestSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": 1000,
+						"forwardingAllowed": false,
+						"keeperSpec": null,
+                        "cronSpec": null,
+                        "vrfSpec": null,
+						"webhookSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"observerSpec": {
+							"addresses": ["%s"],
+							"events": ["foo()","bar()"],
+							"interval": "1m0s",
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"evmChainID": "42"
+						},
 						"errors": []
 					}
 				}
@@ -192,6 +259,7 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"errors": []
 					}
 				}
@@ -279,6 +347,7 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"errors": []
 					}
 				}
@@ -341,6 +410,7 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"errors": []
 					}
 				}
@@ -398,6 +468,7 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
                         "errors": []
                     }
                 }
@@ -453,6 +524,7 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"errors": []
 					}
 				}
@@ -519,6 +591,7 @@ func TestJob(t *testing.T) {
 						},
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -596,6 +669,7 @@ func TestJob(t *testing.T) {
 							"updatedAt": "0001-01-01T00:00:00Z"
 						},
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -659,6 +733,7 @@ func TestJob(t *testing.T) {
 							"relayConfig":{"chainID":1337}, 
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},
+						"observerSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -735,6 +810,7 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
+						"observerSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

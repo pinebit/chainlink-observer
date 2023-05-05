@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/observer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -324,6 +325,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger),
 			job.Cron: cron.NewDelegate(
 				pipelineRunner,
+				globalLogger),
+			job.Observer: observer.NewDelegate(
+				pipelineRunner,
+				chains.EVM,
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
 				globalLogger,

@@ -36,6 +36,7 @@ const (
 	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
 	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
+	ObserverJobSpec          JobSpecType = "observer"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -415,6 +416,28 @@ func NewBootstrapSpec(spec *job.BootstrapSpec) *BootstrapSpec {
 	}
 }
 
+// ObserverSpec defines the spec details of an Observer Job
+type ObserverSpec struct {
+	Addresses  []string        `json:"addresses"`
+	Events     []string        `json:"events"`
+	Interval   models.Duration `json:"interval"`
+	EVMChainID *utils.Big      `json:"evmChainID"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	UpdatedAt  time.Time       `json:"updatedAt"`
+}
+
+// NewObserverSpec initializes a new ObserverSpec from a job.ObserverSpec
+func NewObserverSpec(spec *job.ObserverSpec) *ObserverSpec {
+	return &ObserverSpec{
+		Addresses:  spec.Addresses,
+		Events:     spec.Events,
+		Interval:   spec.Interval,
+		EVMChainID: spec.EVMChainID,
+		CreatedAt:  spec.CreatedAt,
+		UpdatedAt:  spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -455,6 +478,7 @@ type JobResource struct {
 	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
 	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
+	ObserverSpec           *ObserverSpec           `json:"observerSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -496,6 +520,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BlockHeaderFeederSpec = NewBlockHeaderFeederSpec(j.BlockHeaderFeederSpec)
 	case job.Bootstrap:
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
+	case job.Observer:
+		resource.ObserverSpec = NewObserverSpec(j.ObserverSpec)
 	}
 
 	jes := []JobError{}

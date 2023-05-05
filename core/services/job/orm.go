@@ -407,6 +407,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create BootstrapSpec for jobSpec")
 			}
 			jb.BootstrapSpecID = &specID
+		case Observer:
+			var specID int32
+			sql := `INSERT INTO observer_specs (addresses, events, interval, evm_chain_id, created_at, updated_at)
+			VALUES (:addresses, :events, :interval, :evm_chain_id, NOW(), NOW())
+			RETURNING id;`
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, toObserverSpecRow(jb.ObserverSpec)); err != nil {
+				return errors.Wrap(err, "failed to create ObserverSpec")
+			}
+			jb.ObserverSpecID = &specID
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -444,15 +453,15 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	// if job has id, emplace otherwise insert with a new id.
 	if job.ID == 0 {
 		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, observer_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :observer_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 	} else {
 		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, observer_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 	VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+			:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :observer_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 	RETURNING *;`
 	}
 	return q.GetNamed(query, job, job)
@@ -480,7 +489,8 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 				direct_request_spec_id,
 				blockhash_store_spec_id,
 				bootstrap_spec_id,
-				block_header_feeder_spec_id
+				block_header_feeder_spec_id,
+				observer_spec_id
 		),
 		deleted_oracle_specs AS (
 			DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)
@@ -511,6 +521,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_bootstrap_specs AS (
 			DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)
+		),
+		deleted_observer_specs AS (
+			DELETE FROM observer_specs WHERE id IN (SELECT observer_spec_id FROM deleted_jobs)
 		),
 		deleted_block_header_feeder_specs AS (
 			DELETE FROM block_header_feeder_specs WHERE id IN (SELECT block_header_feeder_spec_id FROM deleted_jobs)
@@ -1185,6 +1198,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		loadVRFJob(tx, job, job.VRFSpecID),
+		loadObserverJob(tx, job, job.ObserverSpecID),
 		loadBlockhashStoreJob(tx, job, job.BlockhashStoreSpecID),
 		loadBlockHeaderFeederJob(tx, job, job.BlockHeaderFeederSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
@@ -1228,6 +1242,21 @@ func loadVRFJob(tx pg.Queryer, job *Job, id *int32) error {
 	return nil
 }
 
+func loadObserverJob(tx pg.Queryer, job *Job, id *int32) error {
+	if id == nil {
+		return nil
+	}
+
+	var row observerSpecRow
+	err := tx.Get(&row, `SELECT * FROM observer_specs WHERE id = $1`, *id)
+	if err != nil {
+		return errors.Wrapf(err, `failed to load job type ObserverSpec with id %d`, *id)
+	}
+
+	job.ObserverSpec = row.toObserverSpec()
+	return nil
+}
+
 // vrfSpecRow is a helper type for reading and writing VRF specs to the database. This is necessary
 // because the bytea[] in the DB is not automatically convertible to or from the spec's
 // FromAddresses field. pq.ByteaArray must be used instead.
@@ -1250,6 +1279,35 @@ func (r vrfSpecRow) toVRFSpec() *VRFSpec {
 			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.VRFSpec
+}
+
+type observerSpecRow struct {
+	*ObserverSpec
+	Addresses pq.ByteaArray
+	Events    pq.StringArray
+}
+
+func toObserverSpecRow(spec *ObserverSpec) observerSpecRow {
+	addresses := make(pq.ByteaArray, len(spec.Addresses))
+	for i, as := range spec.Addresses {
+		addr, _ := common.NewMixedcaseAddressFromString(as)
+		addresses[i] = addr.Address().Bytes()
+	}
+	events := make(pq.StringArray, len(spec.Events))
+	for i, es := range spec.Events {
+		events[i] = es
+	}
+	return observerSpecRow{ObserverSpec: spec, Addresses: addresses, Events: events}
+}
+
+func (r observerSpecRow) toObserverSpec() *ObserverSpec {
+	for _, a := range r.Addresses {
+		r.ObserverSpec.Addresses = append(r.ObserverSpec.Addresses, common.BytesToAddress(a).String())
+	}
+	for _, e := range r.Events {
+		r.ObserverSpec.Events = append(r.ObserverSpec.Events, e)
+	}
+	return r.ObserverSpec
 }
 
 func loadBlockhashStoreJob(tx pg.Queryer, job *Job, id *int32) error {

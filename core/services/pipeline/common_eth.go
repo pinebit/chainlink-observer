@@ -93,6 +93,10 @@ func ParseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, index
 	return args, indexedArgs, nil
 }
 
+func ParseETHABIString(theABI []byte, isLog bool) (name string, args abi.Arguments, indexedArgs abi.Arguments, err error) {
+	return parseETHABIString(theABI, isLog)
+}
+
 func parseETHABIString(theABI []byte, isLog bool) (name string, args abi.Arguments, indexedArgs abi.Arguments, err error) {
 	matches := ethABIRegex.FindAllSubmatch(theABI, -1)
 	if len(matches) != 1 || len(matches[0]) != 3 {

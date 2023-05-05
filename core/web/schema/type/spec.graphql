@@ -9,7 +9,8 @@ union JobSpec =
     WebhookSpec |
     BlockhashStoreSpec |
     BlockHeaderFeederSpec |
-    BootstrapSpec
+    BootstrapSpec |
+    ObserverSpec
 
 type CronSpec {
     schedule: String!
@@ -155,5 +156,14 @@ type BootstrapSpec {
     blockchainTimeout: String
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
+    createdAt: Time!
+}
+
+type ObserverSpec {
+    id: ID!
+    addresses: [String!]
+    events: [String!]
+    interval: String!
+    evmChainID: String!
     createdAt: Time!
 }

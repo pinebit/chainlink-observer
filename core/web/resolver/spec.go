@@ -109,6 +109,15 @@ func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	return &BootstrapSpecResolver{spec: *r.j.BootstrapSpec}, true
 }
 
+// ToObserverSpec resolves to the Observer Spec Resolver
+func (r *SpecResolver) ToObserverSpec() (*ObserverSpecResolver, bool) {
+	if r.j.Type != job.Observer {
+		return nil, false
+	}
+
+	return &ObserverSpecResolver{spec: *r.j.ObserverSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -958,5 +967,39 @@ func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
 
 // CreatedAt resolves the spec's created at timestamp.
 func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+type ObserverSpecResolver struct {
+	spec job.ObserverSpec
+}
+
+// ID resolves the Observer spec ID
+func (r *ObserverSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+// Addresses resolves the spec's list of addresses.
+func (r *ObserverSpecResolver) Addresses() *[]string {
+	return &r.spec.Addresses
+}
+
+// Events resolves the spec's list of events.
+func (r *ObserverSpecResolver) Events() *[]string {
+	return &r.spec.Events
+}
+
+// Interval resolves the spec's polling interval.
+func (r *ObserverSpecResolver) Interval() string {
+	return r.spec.Interval.String()
+}
+
+// EVMChainID resolves the spec's evm chain id.
+func (r *ObserverSpecResolver) EVMChainID() string {
+	return r.spec.EVMChainID.String()
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *ObserverSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }

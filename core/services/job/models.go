@@ -39,6 +39,7 @@ const (
 	BlockHeaderFeeder  Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	Webhook            Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
+	Observer           Type = (Type)(pipeline.ObserverJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -73,6 +74,7 @@ var (
 		BlockhashStore:     false,
 		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
+		Observer:           true,
 	}
 	supportsAsync = map[Type]bool{
 		Cron:               true,
@@ -86,6 +88,7 @@ var (
 		BlockhashStore:     false,
 		BlockHeaderFeeder:  false,
 		Bootstrap:          false,
+		Observer:           false,
 	}
 	schemaVersions = map[Type]uint32{
 		Cron:               1,
@@ -99,6 +102,7 @@ var (
 		BlockhashStore:     1,
 		BlockHeaderFeeder:  1,
 		Bootstrap:          1,
+		Observer:           1,
 	}
 )
 
@@ -125,8 +129,10 @@ type Job struct {
 	BlockhashStoreSpec      *BlockhashStoreSpec
 	BlockHeaderFeederSpecID *int32
 	BlockHeaderFeederSpec   *BlockHeaderFeederSpec
-	BootstrapSpec           *BootstrapSpec
 	BootstrapSpecID         *int32
+	BootstrapSpec           *BootstrapSpec
+	ObserverSpecID          *int32
+	ObserverSpec            *ObserverSpec
 	PipelineSpecID          int32
 	PipelineSpec            *pipeline.Spec
 	JobSpecErrors           []SpecError
@@ -606,6 +612,29 @@ type BootstrapSpec struct {
 	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
+}
+
+type ObserverSpec struct {
+	ID         int32           `toml:"-"`
+	Addresses  []string        `toml:"addresses"`
+	Events     []string        `toml:"events"`
+	Interval   models.Duration `toml:"interval"`
+	EVMChainID *utils.Big      `toml:"evmChainID"`
+	CreatedAt  time.Time       `toml:"-"`
+	UpdatedAt  time.Time       `toml:"-"`
+}
+
+func (s ObserverSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *ObserverSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
 }
 
 // AsOCR2Spec transforms the bootstrap spec into a generic OCR2 format to enable code sharing between specs.
