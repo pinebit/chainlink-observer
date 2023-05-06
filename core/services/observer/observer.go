@@ -100,8 +100,6 @@ func (o *Observer) Start(context.Context) error {
 		return err
 	}
 
-	o.logger.Infow("Registered filter", "filter", filter)
-
 	// Firing a ticker
 	o.ticker = time.NewTicker(observerJobSpec.Interval.Duration())
 	go func() {
@@ -130,8 +128,6 @@ func (o *Observer) Close() error {
 }
 
 func (o *Observer) checkEvents() {
-	o.logger.Info("checkEvents()")
-
 	ctx, cancel := o.chStop.NewCtx()
 	defer cancel()
 
@@ -148,34 +144,38 @@ func (o *Observer) checkEvents() {
 		return
 	}
 	if o.lastBlock == currentBlock {
-		o.logger.Info("no new blocks yet")
 		return
 	}
-	o.logger.Info("got new block(s)")
 
 	for _, address := range o.addresses {
-		o.logger.Infow("querying logs with sigs", "address", address, "hashes", o.hashes, "from", o.lastBlock+1, "to", currentBlock)
 		logs, err := chain.LogPoller().LogsWithSigs(o.lastBlock+1, currentBlock, o.hashes, address)
 		if err != nil {
 			o.logger.Errorw("failed to get LogsWithSigs", "address", address, "err", err)
 			continue
 		}
-		o.logger.Infof("got %d logs", len(logs))
 		for _, log := range logs {
-			abi, ok := o.abis[log.EventSig]
+			eventABI, ok := o.abis[log.EventSig]
 			if !ok {
 				o.logger.Errorw("unexpected EventSig from LogsWithSigs", "address", address, "err", err, "eventsig", log.EventSig)
 				continue
 			}
 
-			eventMap := make(map[string]interface{})
-			if err := abi.Inputs.UnpackIntoMap(eventMap, log.Data); err != nil {
+			dataValues := make(map[string]interface{})
+			if err := eventABI.Inputs.UnpackIntoMap(dataValues, log.Data); err != nil {
 				o.logger.Errorw("failed to decode event log", "address", address, "err", err, "eventsig", log.EventSig)
 				continue
 			}
 
-			eventMap["requestId"] = log.ToGethLog().Topics[1]
-			o.logger.Infow("unpacked event", "event", eventMap)
+			allValues := make(map[string]interface{})
+			indexedArgs := indexedArguments(eventABI.Inputs)
+			if err := abi.ParseTopicsIntoMap(allValues, indexedArgs, log.ToGethLog().Topics[1:]); err != nil {
+				o.logger.Errorw("failed to decode event log", "address", address, "err", err, "eventsig", log.EventSig)
+				continue
+			}
+
+			for k, v := range dataValues {
+				allValues[k] = v
+			}
 
 			vars := pipeline.NewVarsFrom(map[string]interface{}{
 				"jobSpec": map[string]interface{}{
@@ -186,7 +186,7 @@ func (o *Observer) checkEvents() {
 				"jobRun": map[string]interface{}{
 					"meta":    map[string]interface{}{},
 					"address": address.String(),
-					"event":   eventMap,
+					"event":   allValues,
 				},
 			})
 
@@ -199,4 +199,14 @@ func (o *Observer) checkEvents() {
 	}
 
 	o.lastBlock = currentBlock
+}
+
+func indexedArguments(args abi.Arguments) abi.Arguments {
+	var indexed abi.Arguments
+	for _, arg := range args {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	return indexed
 }
